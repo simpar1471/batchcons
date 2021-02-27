@@ -66,8 +66,9 @@ submitTOPCONS <- function(python.path, topcons.wsdl.path, fasta.path, job.name =
 #' @param topcons.wsdl.path A file path that leads to the topcons2_wsdl.py file.
 #' @param output.dir The directory to download your TOPCONS output to.
 #' @param job.id The job ID of the submission you're retrieving, e.g. 'rst_12TEST34'
-#' @param remove.zip A boolean value denoting whether you want the .zip file to be deleted.
-fetchTOPCONS <- function(python.path, topcons.wsdl.path, output.dir, job.id, remove.zip = TRUE)
+#' @param extract.results Should the query.results.txt file be extracted from the downloaded zipped folder? If set to
+#' TRUE, the zipped folder will NOT be deleted.
+fetchTOPCONS <- function(python.path, topcons.wsdl.path, output.dir, job.id, extract.results = FALSE)
 {
   if(missing(python.path)) stop("You must supply a file path to a Python exe.")
   if(!file.exists(python.path)) stop("The path to your Python exe is invalid.")
@@ -83,11 +84,55 @@ fetchTOPCONS <- function(python.path, topcons.wsdl.path, output.dir, job.id, rem
   zip_path <- file.path(output.dir, glue("{job.id}.zip"))
   if(file.exists(zip_path))
   {
-    query_result_path <- file.path(job.id,"query.result.txt")
-    utils::unzip(zipfile = zip_path,
-                 files = query_result_path,
-                 exdir = output.dir)
-    if(remove.zip) file.remove(zip_path)
-    message(glue("TOPCONS results fetched and placed in {file.path(output.dir, job.id)}"))
+    if(extract.results) { extractQueryResult(output.dir, job.id, remove.zip = FALSE)
+    } else message(glue("TOPCONS zipped folder in {file.path(output.dir)}"))
   } else stop("Either check that an urllib error has not occurred, or wait for your TOPCONS job to finish running.")
+}
+
+#' Extract the query.result.txt file from a directory with a given TOPCONS zip file.
+#'
+#' @param zipdir.path A file path leading to the directory containing your TOPCONS zip file. The text file will be
+#' extracted to this directory.
+#' @param job.id A TOPCONS job ID.
+#' @param remove.zip A boolean value denoting whether you want the zipped folder to be deleted after query.result.txt
+#' is extracted. Defaults to FALSE.
+extractQueryResults <- function(zipdir.path, job.id, remove.zip = FALSE)
+{
+  if(missing(zipdir.path)) stop("You must supply a file path to your TOPCONS zip file.")
+  if(!file.exists(zipdir.path)) stop("The specified zip file does not exist.")
+  if(missing(job.id)) stop("You must provide a job ID. This will be in the format.")
+
+  # Unzip the file
+  zip_file_path <- file.path(zipdir.path, glue("{job.id}.zip"))
+  query_result_path <- file.path(job.id,"query.result.txt")
+  utils::unzip(zipfile = zip_file_path,
+               files = query_result_path,
+               exdir = zipdir.path)
+  # Move and rename the file, then delete the directory created by utils::unzip
+  txtfile_path <- file.path(zipdir.path, query_result_path)
+  new_location_path <- file.path(zipdir.path, glue("{job.id}.query.result.txt"))
+  file.copy(txtfile_path, new_location_path)
+  unlink(file.path(zipdir.path, job.id), recursive = TRUE)
+  # Delete the zipped folder if specified by the user
+  if(remove.zip) file.remove(zip_file_path)
+  message(glue("Query results fetched and placed in {zipdir.path}"))
+}
+
+#' Download query results directly
+#'
+#' @details Note that job results are only available for 30 days after the job was run. This function cuts
+#' down on the amount of extra data (images, HTML files etc.) included in the zipped folder for a given job.
+#' @param output.dir The directory to which you want the text file downloaded.
+#' @param job.id The TOPCONS job ID for which you want the results.
+downloadQueryResults <- function(output.dir, job.id)
+{
+  if(missing(output.dir)) { stop("You must specify the directory to which the txt file will be downloaded.")
+  } else if(!file.exists(output.dir)) stop("The specified download directory does not exist.")
+  if(missing(job.id)) stop("You must specify a TOPCONS job ID.")
+
+  job_url <- glue("https://topcons.net/static/result/{job.id}/{job.id}/query.result.txt")
+  dest_file <- file.path(output.dir, "query.result.txt")
+  download.file(url = job_url,
+                destfile = dest_file)
+  file.rename(dest_file, file.path(output.dir, glue("{trimws(job.id)}.query.result.txt")))
 }
