@@ -60,7 +60,7 @@ AttributeError: module 'urllib' has no attribute 'urlretrieve'
 If this occurs, run `updateTOPCONSScript()`, which replaces calls to `urllib` in `batch_wsdl.py` with calls to `urllib.request`:
 ```R
 wsdl_script_path <- file.path("wsdl_dir","batch_wsdl.py")
-updateTOPCONSScript(topcons.wsdl.path) 
+updateTOPCONSScript(wsdl_script_path) 
 ```
 ## <b>Preparing FASTA sequences</b>
 You can easily prepare your own FASTA sequences if you have some Uniprot identifiers, and install `UniprotR` and the `tidyverse`:
